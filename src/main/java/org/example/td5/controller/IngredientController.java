@@ -47,5 +47,5 @@ public class IngredientController {
 
         Double value = repository.getStockValue(id, at, unit);
         return ResponseEntity.ok(Map.of("unit", unit, "value", value));
-    }
+    }   
 }

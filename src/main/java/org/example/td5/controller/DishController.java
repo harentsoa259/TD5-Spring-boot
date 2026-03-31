@@ -1,8 +1,11 @@
+
 package org.example.td5.controller;
 
 import org.example.td5.entity.Dish;
 import org.example.td5.entity.Ingredient;
+import org.example.td5.entity.CreateDishDTO;
 import org.example.td5.repository.DishRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,25 +20,60 @@ public class DishController {
         this.dishRepository = dishRepository;
     }
 
+
     @GetMapping
-    public List<Dish> getAllDishes() {
-        return dishRepository.findAll();
+    public List<Dish> getDishes(
+            @RequestParam(required = false) Double priceUnder,
+            @RequestParam(required = false) Double priceOver,
+            @RequestParam(required = false) String name
+    ) {
+        return dishRepository.findAllWithFilters(priceUnder, priceOver, name);
     }
 
-    @PutMapping("/{id}/ingredients")
-    public ResponseEntity<?> updateIngredients(
-            @PathVariable int id,
-            @RequestBody(required = false) List<Ingredient> ingredients) {
 
-        if (dishRepository.findById(id) == null) {
-            return ResponseEntity.status(404).body("Dish.id=" + id + " is not found");
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getDishById(@PathVariable int id) {
+        Dish dish = dishRepository.findById(id);
+        if (dish == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Le plat avec l'ID " + id + " n'existe pas.");
         }
+        return ResponseEntity.ok(dish);
+    }
 
-        if (ingredients == null) {
-            return ResponseEntity.status(400).body("The request body containing the list of ingredients is mandatory.");
+
+    @PostMapping
+    public ResponseEntity<?> createDishes(@RequestBody List<CreateDishDTO> dtos) {
+        try {
+            List<Dish> result = dishRepository.createDishes(dtos);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(result);
+
+        } catch (RuntimeException e) {
+
+            if (e.getMessage().contains("already exists")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            }
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Internal Server Error: " + e.getMessage());
+        }
+    }
+
+
+    @PutMapping("/{id}/ingredients")
+    public ResponseEntity<?> updateIngredients(@PathVariable int id, @RequestBody List<Ingredient> ingredients) {
+        Dish dish = dishRepository.findById(id);
+        if (dish == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Dish not found");
         }
 
         dishRepository.updateAssociations(id, ingredients);
-        return ResponseEntity.ok("Ingredients updated for dish " + id);
+
+
+        Dish updatedDish = dishRepository.findById(id);
+        return ResponseEntity.ok(updatedDish);
     }
 }
